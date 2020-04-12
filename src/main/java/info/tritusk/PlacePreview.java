@@ -101,9 +101,6 @@ public final class PlacePreview {
             BlockRayTraceResult rayTrace = (BlockRayTraceResult) mc.objectMouseOver;
             PlayerEntity player = mc.player;
             ItemStack held = player.getHeldItemMainhand();
-            if (held.isEmpty()) {
-                return;
-            }
             if (held.getItem() instanceof BlockItem) {
                 BlockItem theBlockItem = (BlockItem) held.getItem();
                 BlockItemUseContext context = theBlockItem.getBlockItemUseContext(new BlockItemUseContext(new ItemUseContext(player, Hand.MAIN_HAND, rayTrace)));
