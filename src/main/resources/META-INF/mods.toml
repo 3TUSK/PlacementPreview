@@ -1,0 +1,20 @@
+modLoader="javafml"
+
+loaderVersion="[31,)"
+
+[[mods]]
+modId="placement_preview"
+version="${file.jarVersion}"
+displayName="Placement Preview"
+
+displayURL="https://github.com/3TUSK/PlacementPreview"
+# logoFile="logo.png"
+
+credits='''
+Someone named 'Thousand's Fungay Funguy Daddy' on Twilight Forest Discord, for the mod idea.
+Williewillus for his multiblock visualization code in Patchouli.
+'''
+
+authors="3TUSK"
+
+description="Get to know how your block will be placed beforehand!"
