@@ -137,18 +137,12 @@ public final class PlacePreview {
         for (Map.Entry<RenderType, BufferBuilder> e : layerBuffers.entrySet()) {
             remapped.put(GhostRenderType.remap(e.getKey()), e.getValue());
         }
-        return new GhostBuffers(fallback, remapped);
-    }
-
-    private static class GhostBuffers extends IRenderTypeBuffer.Impl {
-        protected GhostBuffers(BufferBuilder fallback, Map<RenderType, BufferBuilder> layerBuffers) {
-            super(fallback, layerBuffers);
-        }
-
-        @Override
-        public IVertexBuilder getBuffer(RenderType type) {
-            return super.getBuffer(GhostRenderType.remap(type));
-        }
+        return new IRenderTypeBuffer.Impl(fallback, remapped) {
+            @Override
+            public IVertexBuilder getBuffer(RenderType type) {
+                return super.getBuffer(GhostRenderType.remap(type));
+            }
+        };
     }
 
     private static class GhostRenderType extends RenderType {
