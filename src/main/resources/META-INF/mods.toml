@@ -8,13 +8,14 @@ version="${file.jarVersion}"
 displayName="Placement Preview"
 
 displayURL="https://github.com/3TUSK/PlacementPreview"
-# logoFile="logo.png"
+logoFile="logo.png"
 
 credits='''
-Someone named 'Thousand's Fungay Funguy Daddy' on Twilight Forest Discord, for the mod idea.
+Big Daddy#6555 in the Twilight Forest Discord, for the mod idea.
 Williewillus for his multiblock visualization code in Patchouli.
+Yuri's Cat for his awesome logo.
 '''
 
 authors="3TUSK"
 
-description="Get to know how your block will be placed beforehand!"
+description="Get to know how your block will (probably) be placed beforehand!"
