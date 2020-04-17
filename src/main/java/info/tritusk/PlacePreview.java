@@ -172,7 +172,7 @@ public final class PlacePreview {
                                     TileEntityRenderer<? super TileEntity> renderer = TileEntityRendererDispatcher.instance.getRenderer(tile);
                                     if (renderer != null) {
                                         try {
-                                            renderer.render(tile, 0F, transforms, renderBuffer, world.getLight(target), OverlayTexture.NO_OVERLAY);
+                                            renderer.render(tile, 0F, transforms, renderBuffer, 0xF000F0, OverlayTexture.NO_OVERLAY);
                                         } catch (Exception ignored) {}
                                     }
                                 }
