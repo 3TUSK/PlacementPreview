@@ -44,6 +44,7 @@ import org.lwjgl.glfw.GLFW;
 
 import net.minecraft.block.BlockState;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.entity.player.ClientPlayerEntity;
 import net.minecraft.client.renderer.BufferBuilder;
 import net.minecraft.client.renderer.IRenderTypeBuffer;
 import net.minecraft.client.renderer.RenderType;
@@ -53,7 +54,6 @@ import net.minecraft.client.renderer.tileentity.TileEntityRenderer;
 import net.minecraft.client.renderer.tileentity.TileEntityRendererDispatcher;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.client.util.InputMappings;
-import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.BlockItem;
 import net.minecraft.item.BlockItemUseContext;
 import net.minecraft.item.ItemStack;
@@ -95,7 +95,7 @@ public final class PlacePreview {
         GET_STATE_FOR_PLACEMENT = m;
     }
 
-    private static IRenderTypeBuffer.Impl renderBuffer = null;
+    private static IRenderTypeBuffer.Impl renderBuffer;
 
     private static KeyBinding enablePreviewHotkey;
 
@@ -132,10 +132,13 @@ public final class PlacePreview {
         }
 
         Minecraft mc = Minecraft.getInstance();
-        if (mc.objectMouseOver instanceof BlockRayTraceResult && mc.objectMouseOver.getType() != RayTraceResult.Type.MISS) {
+        if (!mc.gameSettings.keyBindAttack.isKeyDown() && mc.objectMouseOver instanceof BlockRayTraceResult && mc.objectMouseOver.getType() != RayTraceResult.Type.MISS) {
             BlockRayTraceResult rayTrace = (BlockRayTraceResult) mc.objectMouseOver;
-            PlayerEntity player = mc.player;
+            ClientPlayerEntity player = mc.player;
             ItemStack held = player.getHeldItemMainhand();
+            if (!(held.getItem() instanceof BlockItem)) {
+                held = player.getHeldItemOffhand();
+            }
             if (held.getItem() instanceof BlockItem) {
                 BlockItem theBlockItem = (BlockItem) held.getItem();
                 BlockItemUseContext context = theBlockItem.getBlockItemUseContext(new BlockItemUseContext(new ItemUseContext(player, Hand.MAIN_HAND, rayTrace)));
