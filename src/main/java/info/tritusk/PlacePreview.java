@@ -42,6 +42,7 @@ import com.mojang.blaze3d.vertex.IVertexBuilder;
 
 import org.lwjgl.glfw.GLFW;
 
+import net.minecraft.block.BlockRenderType;
 import net.minecraft.block.BlockState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.player.ClientPlayerEntity;
@@ -83,126 +84,127 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 @Mod("placement_preview")
 public final class PlacePreview {
 
-    private static final MethodHandle GET_STATE_FOR_PLACEMENT;
-
-    static {
-        MethodHandle m = null;
-        try {
-            m = MethodHandles.lookup().unreflect(ObfuscationReflectionHelper.findMethod(BlockItem.class, "func_195945_b", BlockItemUseContext.class));
-        } catch (Exception ignored) {
-            // nothing we can do here, really
-        }
-        GET_STATE_FOR_PLACEMENT = m;
-    }
-
-    private static IRenderTypeBuffer.Impl renderBuffer;
-
-    private static KeyBinding enablePreviewHotkey;
-
-    private static boolean enable = true;
-
     public PlacePreview() {
         DistExecutor.runWhenOn(Dist.CLIENT, () -> () -> {
             FMLJavaModLoadingContext.get().getModEventBus().addListener(PlacePreview::setup);
-            MinecraftForge.EVENT_BUS.register(PlacePreview.class);
+            MinecraftForge.EVENT_BUS.register(ClientEventListener.class);
         });
     }
 
     private static void setup(FMLClientSetupEvent event) {
-        ClientRegistry.registerKeyBinding(enablePreviewHotkey = new KeyBinding("key.placement_preview.toggle", KeyConflictContext.IN_GAME, KeyModifier.SHIFT, InputMappings.Type.KEYSYM, GLFW.GLFW_KEY_R, "key.category.placement_preview"));
+        ClientRegistry.registerKeyBinding(ClientEventListener.enablePreviewHotkey = new KeyBinding("key.placement_preview.toggle", 
+                KeyConflictContext.IN_GAME, KeyModifier.SHIFT, InputMappings.Type.KEYSYM, GLFW.GLFW_KEY_R, "key.category.placement_preview"));
     }
 
-    @SubscribeEvent
-    public static void hotkey(InputEvent.KeyInputEvent event) {
-        if (enablePreviewHotkey.isPressed()) {
-            enable = !enable;
-        }
-    }
-
-    /*
-     * The following code is a modified version of multiblock visualization code from the Patchouli mod, 
-     * whose source locates at:
-     * https://github.com/Vazkii/Patchouli/blob/master/src/main/java/vazkii/patchouli/client/handler/MultiblockVisualizationHandler.java
+    /* 
+     * It is a new class in order to make sure that 
+     * we don't accidentially crash the dedicated server. 
      */
+    static final class ClientEventListener { 
 
-    @SubscribeEvent
-    public static void preview(RenderWorldLastEvent event) {
-        if (!enable) {
-            return;
+        private static final MethodHandle GET_STATE_FOR_PLACEMENT;
+
+        private static IRenderTypeBuffer.Impl renderBuffer;
+        private static boolean enable = true;
+        static KeyBinding enablePreviewHotkey;
+        
+        static {
+            MethodHandle m = null;
+            try {
+                m = MethodHandles.lookup().unreflect(ObfuscationReflectionHelper.findMethod(BlockItem.class, "func_195945_b", BlockItemUseContext.class));
+            } catch (Exception e) {
+                throw new RuntimeException("Report this to the author of Place-Preview", e);
+            }
+            GET_STATE_FOR_PLACEMENT = m;
         }
 
-        Minecraft mc = Minecraft.getInstance();
-        if (!mc.gameSettings.keyBindAttack.isKeyDown() && mc.objectMouseOver instanceof BlockRayTraceResult && mc.objectMouseOver.getType() != RayTraceResult.Type.MISS) {
-            BlockRayTraceResult rayTrace = (BlockRayTraceResult) mc.objectMouseOver;
-            ClientPlayerEntity player = mc.player;
-            ItemStack held = player.getHeldItemMainhand();
-            if (!(held.getItem() instanceof BlockItem)) {
-                held = player.getHeldItemOffhand();
+        @SubscribeEvent
+        public static void hotkey(InputEvent.KeyInputEvent event) {
+            if (enablePreviewHotkey.isPressed()) {
+                enable = !enable;
             }
-            if (held.getItem() instanceof BlockItem) {
-                BlockItem theBlockItem = (BlockItem) held.getItem();
-                BlockItemUseContext context = theBlockItem.getBlockItemUseContext(new BlockItemUseContext(new ItemUseContext(player, Hand.MAIN_HAND, rayTrace)));
-                if (context != null) {
-                    BlockState placeResult;
-                    try {
-                        placeResult = (BlockState) GET_STATE_FOR_PLACEMENT.invokeExact(theBlockItem, context);
-                    } catch (Throwable e) {
-                        placeResult = null;
+        }
+
+        /*
+         * The following code is a modified version of multiblock visualization code
+         * from the Patchouli mod, whose source locates at:
+         * https://github.com/Vazkii/Patchouli/blob/master/src/main/java/vazkii/patchouli/client/handler/MultiblockVisualizationHandler.java
+         */
+
+        @SubscribeEvent
+        public static void preview(RenderWorldLastEvent event) {
+            if (enable) {
+                Minecraft mc = Minecraft.getInstance();
+                if (!mc.gameSettings.keyBindAttack.isKeyDown() && mc.objectMouseOver instanceof BlockRayTraceResult && mc.objectMouseOver.getType() != RayTraceResult.Type.MISS) {
+                    ClientPlayerEntity player = mc.player;
+                    ItemStack held = player.getHeldItemMainhand();
+                    if (!(held.getItem() instanceof BlockItem)) {
+                        held = player.getHeldItemOffhand();
                     }
-                    if (placeResult != null) {
-                        if (renderBuffer == null) {
-                            renderBuffer = initRenderBuffer(mc.getRenderTypeBuffers().getBufferSource());
-                        }
-                        MatrixStack transforms = event.getMatrixStack();
-                        Vec3d projVec = mc.getRenderManager().info.getProjectedView();
-                        transforms.translate(-projVec.x, -projVec.y, -projVec.z);
-                        transforms.push();
-                        BlockPos target = context.getPos();
-                        transforms.translate(target.getX(), target.getY(), target.getZ());
-                        World world = context.getWorld();
-                        switch (placeResult.getRenderType()) {
-                            case MODEL:
-                                mc.getBlockRendererDispatcher().renderModel(placeResult, target, world, transforms, renderBuffer.getBuffer(RenderTypeLookup.getRenderType(placeResult)), EmptyModelData.INSTANCE);
-                            case ENTITYBLOCK_ANIMATED:
-                                /* 
-                                 * Yes, we use a fake tile entity to workaround this.
-                                 * All exceptions are discared. It is ugly, yes, but
-                                 * it partially solve the problem.
-                                 */
-                                if (placeResult.hasTileEntity()) {
-                                    TileEntity tile = placeResult.createTileEntity(world);
-                                    tile.setWorldAndPos(world, target);
-                                    TileEntityRenderer<? super TileEntity> renderer = TileEntityRendererDispatcher.instance.getRenderer(tile);
-                                    if (renderer != null) {
-                                        try {
-                                            renderer.render(tile, 0F, transforms, renderBuffer, 0xF000F0, OverlayTexture.NO_OVERLAY);
-                                        } catch (Exception ignored) {}
+                    if (held.getItem() instanceof BlockItem) {
+                        BlockItem theBlockItem = (BlockItem) held.getItem();
+                        BlockItemUseContext context = theBlockItem.getBlockItemUseContext(new BlockItemUseContext(new ItemUseContext(player, Hand.MAIN_HAND, (BlockRayTraceResult) mc.objectMouseOver)));
+                        if (context != null) {
+                            BlockState placeResult;
+                            try {
+                                placeResult = (BlockState) GET_STATE_FOR_PLACEMENT.invokeExact(theBlockItem, context);
+                            } catch (Throwable e) {
+                                placeResult = null;
+                            }
+                            if (placeResult != null) {
+                                if (renderBuffer == null) {
+                                    renderBuffer = initRenderBuffer(mc.getRenderTypeBuffers().getBufferSource());
+                                }
+                                MatrixStack transforms = event.getMatrixStack();
+                                Vec3d projVec = mc.getRenderManager().info.getProjectedView();
+                                transforms.translate(-projVec.x, -projVec.y, -projVec.z);
+                                transforms.push();
+                                BlockPos target = context.getPos();
+                                transforms.translate(target.getX(), target.getY(), target.getZ());
+                                World world = context.getWorld();
+                                BlockRenderType renderType = placeResult.getRenderType();
+                                if (renderType == BlockRenderType.MODEL) {
+                                    mc.getBlockRendererDispatcher().renderModel(placeResult, target, world, transforms, renderBuffer.getBuffer(RenderTypeLookup.getRenderType(placeResult)), EmptyModelData.INSTANCE);
+                                }
+                                if (renderType != BlockRenderType.INVISIBLE) { // Assume it is not null.
+                                    /*
+                                     * Yes, we use a fake tile entity to workaround this. All exceptions are
+                                     * discared. It is ugly, yes, but it partially solve the problem.
+                                     */
+                                    if (placeResult.hasTileEntity()) {
+                                        TileEntity tile = placeResult.createTileEntity(world);
+                                        tile.setWorldAndPos(world, target);
+                                        TileEntityRenderer<? super TileEntity> renderer = TileEntityRendererDispatcher.instance.getRenderer(tile);
+                                        if (renderer != null) {
+                                            try {
+                                                renderer.render(tile, 0F, transforms, renderBuffer, 0xF000F0, OverlayTexture.NO_OVERLAY);
+                                            } catch (Exception ignored) {}
+                                        }
                                     }
                                 }
-                            default:
-                                break;
+                                transforms.pop();
+                                renderBuffer.finish();
+                            }
                         }
-                        transforms.pop();
-                        renderBuffer.finish();
                     }
                 }
             }
         }
-    }
 
-    private static IRenderTypeBuffer.Impl initRenderBuffer(IRenderTypeBuffer.Impl original) {
-        BufferBuilder fallback = ObfuscationReflectionHelper.getPrivateValue(IRenderTypeBuffer.Impl.class, original, "field_228457_a_");
-        Map<RenderType, BufferBuilder> layerBuffers = ObfuscationReflectionHelper.getPrivateValue(IRenderTypeBuffer.Impl.class, original, "field_228458_b_");
-        Map<RenderType, BufferBuilder> remapped = new HashMap<>();
-        for (Map.Entry<RenderType, BufferBuilder> e : layerBuffers.entrySet()) {
-            remapped.put(GhostRenderType.remap(e.getKey()), e.getValue());
-        }
-        return new IRenderTypeBuffer.Impl(fallback, remapped) {
-            @Override
-            public IVertexBuilder getBuffer(RenderType type) {
-                return super.getBuffer(GhostRenderType.remap(type));
+        private static IRenderTypeBuffer.Impl initRenderBuffer(IRenderTypeBuffer.Impl original) {
+            BufferBuilder fallback = ObfuscationReflectionHelper.getPrivateValue(IRenderTypeBuffer.Impl.class, original, "field_228457_a_");
+            Map<RenderType, BufferBuilder> layerBuffers = ObfuscationReflectionHelper.getPrivateValue(IRenderTypeBuffer.Impl.class, original, "field_228458_b_");
+            Map<RenderType, BufferBuilder> remapped = new HashMap<>();
+            for (Map.Entry<RenderType, BufferBuilder> e : layerBuffers.entrySet()) {
+                remapped.put(GhostRenderType.remap(e.getKey()), e.getValue());
             }
-        };
+            return new IRenderTypeBuffer.Impl(fallback, remapped) {
+                @Override
+                public IVertexBuilder getBuffer(RenderType type) {
+                    return super.getBuffer(GhostRenderType.remap(type));
+                }
+            };
+        }    
     }
 
     private static class GhostRenderType extends RenderType {
