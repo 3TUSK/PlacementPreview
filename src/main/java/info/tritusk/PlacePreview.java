@@ -73,6 +73,7 @@ import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.client.model.data.EmptyModelData;
 import net.minecraftforge.client.settings.KeyConflictContext;
 import net.minecraftforge.client.settings.KeyModifier;
+import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.DistExecutor;
@@ -81,6 +82,7 @@ import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.client.registry.ClientRegistry;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.ObfuscationReflectionHelper;
+import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.network.FMLNetworkConstants;
@@ -88,12 +90,20 @@ import net.minecraftforge.fml.network.FMLNetworkConstants;
 @Mod("placement_preview")
 public final class PlacePreview {
 
+    static ForgeConfigSpec.DoubleValue alpha;
+
     public PlacePreview() {
         /*
          * I hear that adding this line will ensure a green check mark thing
          * being displayed in the server selection list, so here we go.
          */
-        ModLoadingContext.get().registerExtensionPoint(ExtensionPoint.DISPLAYTEST, () -> Pair.of(() -> FMLNetworkConstants.IGNORESERVERONLY, (serverVer, isDedicated) -> true));
+        ModLoadingContext context = ModLoadingContext.get();
+        context.registerExtensionPoint(ExtensionPoint.DISPLAYTEST, () -> Pair.of(() -> FMLNetworkConstants.IGNORESERVERONLY, (serverVer, isDedicated) -> true));
+        ForgeConfigSpec.Builder specBuilder = new ForgeConfigSpec.Builder();
+        alpha = specBuilder.comment("This option decides how transparent the preview is. 0 is fully transparent and 1 is fully opaque.")
+            .translation("placement_preview.config.alpha")
+            .defineInRange("Alpha", 0.5, 0.0, 1.0);
+        context.registerConfig(ModConfig.Type.CLIENT, specBuilder.build());
         DistExecutor.runWhenOn(Dist.CLIENT, () -> () -> {
             FMLJavaModLoadingContext.get().getModEventBus().addListener(PlacePreview::setup);
             MinecraftForge.EVENT_BUS.register(ClientEventListener.class);
@@ -186,7 +196,9 @@ public final class PlacePreview {
                                         TileEntityRenderer<? super TileEntity> renderer = TileEntityRendererDispatcher.instance.getRenderer(tile);
                                         if (renderer != null) {
                                             try {
-                                                renderer.render(tile, 0F, transforms, renderBuffer, 0xF000F0, OverlayTexture.NO_OVERLAY);
+                                                // 0x00F0_00F0 means "full sky light and full block light".
+                                                // Reference: LightTexture.packLight (func_228451_a_)
+                                                renderer.render(tile, 0F, transforms, renderBuffer, 0x00F0_00F0, OverlayTexture.NO_OVERLAY);
                                             } catch (Exception ignored) {}
                                         }
                                     }
@@ -225,7 +237,7 @@ public final class PlacePreview {
                 RenderSystem.disableDepthTest();
                 RenderSystem.enableBlend();
                 RenderSystem.blendFunc(GlStateManager.SourceFactor.CONSTANT_ALPHA, GlStateManager.DestFactor.ONE_MINUS_CONSTANT_ALPHA);
-                RenderSystem.blendColor(1F, 1F, 1F, 0.5F);
+                RenderSystem.blendColor(1F, 1F, 1F, PlacePreview.alpha.get().floatValue());
             }, () -> {
                 RenderSystem.blendColor(1F, 1F, 1F, 1F);
                 RenderSystem.defaultBlendFunc();
