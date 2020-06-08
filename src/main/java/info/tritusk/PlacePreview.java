@@ -171,6 +171,10 @@ public final class PlacePreview {
                                 placeResult = null;
                             }
                             if (placeResult != null) {
+                                BlockRenderType renderType = placeResult.getRenderType();
+                                if (renderType == BlockRenderType.INVISIBLE) { 
+                                    return;
+                                }
                                 if (renderBuffer == null) {
                                     renderBuffer = initRenderBuffer(mc.getRenderTypeBuffers().getBufferSource());
                                 }
@@ -181,26 +185,24 @@ public final class PlacePreview {
                                 BlockPos target = context.getPos();
                                 transforms.translate(target.getX(), target.getY(), target.getZ());
                                 World world = context.getWorld();
-                                BlockRenderType renderType = placeResult.getRenderType();
                                 if (renderType == BlockRenderType.MODEL) {
                                     mc.getBlockRendererDispatcher().renderModel(placeResult, target, world, transforms, renderBuffer.getBuffer(RenderTypeLookup.getRenderType(placeResult)), EmptyModelData.INSTANCE);
                                 }
-                                if (renderType != BlockRenderType.INVISIBLE) { // Assume it is not null.
-                                    /*
-                                     * Yes, we use a fake tile entity to workaround this. All exceptions are
-                                     * discared. It is ugly, yes, but it partially solve the problem.
-                                     */
-                                    if (placeResult.hasTileEntity()) {
-                                        TileEntity tile = placeResult.createTileEntity(world);
-                                        tile.setWorldAndPos(world, target);
-                                        TileEntityRenderer<? super TileEntity> renderer = TileEntityRendererDispatcher.instance.getRenderer(tile);
-                                        if (renderer != null) {
-                                            try {
-                                                // 0x00F0_00F0 means "full sky light and full block light".
-                                                // Reference: LightTexture.packLight (func_228451_a_)
-                                                renderer.render(tile, 0F, transforms, renderBuffer, 0x00F0_00F0, OverlayTexture.NO_OVERLAY);
-                                            } catch (Exception ignored) {}
-                                        }
+                                /* Assume renderType is not null.
+                                 *
+                                 * Yes, we use a fake tile entity to workaround this. All exceptions are
+                                 * discared. It is ugly, yes, but it partially solve the problem.
+                                 */
+                                if (placeResult.hasTileEntity()) {
+                                    TileEntity tile = placeResult.createTileEntity(world);
+                                    tile.setWorldAndPos(world, target);
+                                    TileEntityRenderer<? super TileEntity> renderer = TileEntityRendererDispatcher.instance.getRenderer(tile);
+                                    if (renderer != null) {
+                                        try {
+                                            // 0x00F0_00F0 means "full sky light and full block light".
+                                            // Reference: LightTexture.packLight (func_228451_a_)
+                                            renderer.render(tile, 0F, transforms, renderBuffer, 0x00F0_00F0, OverlayTexture.NO_OVERLAY);
+                                        } catch (Exception ignored) {}
                                     }
                                 }
                                 transforms.pop();
